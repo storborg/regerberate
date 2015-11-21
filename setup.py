@@ -1,3 +1,6 @@
+from setuptools import setup, find_packages
+
+
 setup(name='regerberate',
       version='0.0.1.dev',
       description='Design PCB Art with SVG Tools',

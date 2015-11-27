@@ -3,19 +3,10 @@ import logging
 import os.path
 from collections import OrderedDict
 
+from .gerber.context import Context
+from .gerber.parser import GerberParser
+
 log = logging.getLogger(__name__)
-
-
-def composite(a, b):
-    pass
-
-
-def gerber_write(layer, filename):
-    pass
-
-
-def gerber_read(filename):
-    pass
 
 
 class LayerSet(object):
@@ -24,17 +15,15 @@ class LayerSet(object):
         self.layers = OrderedDict()
 
     @classmethod
-    def load_file(cls, filename):
-        log.debug('load_file(%s)', filename)
-        pass
+    def load_svg(cls, filename):
+        log.debug('load_svg(%s)', filename)
 
-    def write_file(self, filename):
-        log.debug('write_file(%s)', filename)
-        pass
+    def write_svg(self, filename):
+        log.debug('write_svg(%s)', filename)
 
     def update_from_gerber(self, filename):
         log.debug('update_from_gerber(%s)', filename)
-        new_base_layer = gerber_read(filename)
+        new_base_layer = self.gerber_read(filename)
         name = filename[:-4]
 
         if name in self.layers:
@@ -46,6 +35,17 @@ class LayerSet(object):
     def render_gerbers(self, output_path):
         log.debug('render_gerbers(%s)', output_path)
         for name, (base_layer, extra_layer) in self.layers.items():
-            layer = composite(base_layer, extra_layer)
+            layer = self.composite(base_layer, extra_layer)
             filename = os.path.join(output_path, name + '.ger')
-            gerber_write(layer, filename)
+            self.gerber_write(layer, filename)
+
+    def composite(self, bottom, top):
+        pass
+
+    def gerber_read(self, filename):
+        context = Context()
+        GerberParser(filename, context).parse()
+        return context
+
+    def gerber_write(self, layer, filename):
+        pass

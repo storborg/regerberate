@@ -18,6 +18,7 @@ setup(name='regerberate',
       author='Scott Torborg',
       author_email='storborg@gmail.com',
       install_requires=[
+          'coloredlogs',
       ],
       license='MIT',
       packages=find_packages(),

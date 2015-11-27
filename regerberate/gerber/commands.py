@@ -1,170 +1,352 @@
 """
 Table of command codes is in Section 4.1, page 58.
 """
+from decimal import Decimal
+
+
+def parse_command(s):
+    if s[0] == '%':
+        # Extended commands, identify by first 3 chars
+        code = s[1:3]
+        cls = extended_commands[code]
+        return cls.from_string(s)
+    else:
+        # For normal commands, identify by end
+        code = s[-4:-1]
+        if code in normal_commands:
+            cls = normal_commands[code]
+            return cls.from_string(s)
+        else:
+            # If not in the map it's a set aperture command
+            return SetApertureCommand.from_string(s)
 
 
 class Command(object):
+    """
+    Base class for Gerber commands.
+    """
     deprecated = False
 
-    def __init__(self, s):
-        self.s = s
-
-    def __str__(self):
-        return self.s
-
     def __repr__(self):
-        return '<%s %r>' % (self.__class__.__name__, self.s)
+        return '<%s %r>' % (self.__class__.__name__, self.__dict__)
 
-    @staticmethod
-    def from_string(s):
-        if s[0] == '%':
-            # Extended commands, identify by first 3 chars
-            code = s[1:3]
-            cls = extended_commands[code]
-            return cls(s)
-        else:
-            # For normal commands, identify by end
-            code = s[-4:-1]
-            if code in normal_commands:
-                cls = normal_commands[code]
-                return cls(s)
-            else:
-                # If not in the map it's a set aperture command
-                return SetApertureCommand(s)
+    @classmethod
+    def from_string(cls, s):
+        return cls()
 
 
 class UnitCommand(Command):
-    # MO, extended
-    # Section 4.10, p98
-    def __init__(self, s):
-        Command.__init__(self, s)
-        self.units = s[3:5]
+    """
+    Command Code MO - Extended
+    Section 4.10, p98
+    """
+    def __init__(self, units):
+        self.units = units
+
+    @classmethod
+    def from_string(cls, s):
+        units = s[3:5]
+        assert units in ('IN', 'MM'), "invalid units %r" % units
+        return cls(units=units)
+
+    def to_string(self):
+        return '%MO' + self.units + '*%'
 
 
 class CoordinateFormatCommand(Command):
-    # FS, extended
-    # Section 4.9, p96
-    def __init__(self, s):
-        Command.__init__(self, s)
+    """
+    Command Code FS - Extended
+    Section 4.9, p96
+    """
+    def __init__(self, format):
+        self.format = format
+
+    @classmethod
+    def from_string(cls, s):
         assert s.startswith('%FSLAX')
         xformat = s[6:8]
         yformat = s[9:11]
         assert xformat == yformat
-        self.format = xformat
+        return cls(format=xformat)
+
+    def to_string(self):
+        return '%FSLAX' + self.format + 'Y' + self.format + '*%'
 
 
 class OffsetCommand(Command):
+    """
+    Comamnd Code OF - Extended, Deprecated
+    Section 7.1.7, p163
+    Syntax is like %OFA1.2B-1.0*%
+    """
     deprecated = True
-    # OF, extended, deprecated
-    # Section 7.1.7, p163
-    pass
+
+    def __init__(self, offset_a, offset_b):
+        self.offset_a = offset_a
+        self.offset_b = offset_b
+
+    @classmethod
+    def from_string(cls, s):
+        assert s.startswith('%OFA')
+        format = s[4:-2]
+        raw_a, raw_b = format.split('B')
+        offset_a = Decimal(raw_a)
+        offset_b = Decimal(raw_b)
+        return cls(offset_a=offset_a, offset_b=offset_b)
+
+    def to_string(self):
+        return '%OFA' + str(self.offset_a) + 'B' + str(self.offset_b) + '*%'
 
 
 class ImagePolarityCommand(Command):
+    """
+    Command Code IP - Extended, Deprecated
+    Section 7.1.3, p160
+    """
     deprecated = True
-    # IP, extended, deprecated
-    # Section 7.1.3, p160
-    pass
+
+    def __init__(self, polarity):
+        self.polarity = polarity
+
+    @classmethod
+    def from_string(cls, s):
+        polarity = s[3:-2]
+        assert polarity in ('POS', 'NEG')
+        return cls(polarity=polarity)
+
+    def to_string(self):
+        return '%IP' + self.polarity + '*%'
 
 
 class LevelPolarityCommand(Command):
-    # LP, extended
-    # Section 4.15.1, p132
-    pass
+    """
+    Command Code LP - Extended
+    Section 4.15.1, p132
+    Syntax is like %LPD*% or %LPC*%
+    C = clear
+    D = dark
+    """
+    def __init__(self, polarity):
+        self.polarity = polarity
+
+    @classmethod
+    def from_string(cls, s):
+        polarity = s[3]
+        assert polarity in ('D', 'C')
+        return cls(polarity=polarity)
+
+    def to_string(self):
+        return '%LP' + self.polarity + '*%'
 
 
 class MacroApertureCommand(Command):
-    # AM, extended
-    # Section 4.13 - p106
-    pass
+    """
+    Command Code AM - Extended
+    Section 4.13.1 - p106
+    Syntax is complex, return to this later
+    """
+    # XXX
+    def __init__(self, s):
+        self.s = s
+
+    @classmethod
+    def from_string(cls, s):
+        return cls(s=s)
+
+    def to_string(self):
+        return self.s
 
 
 class ApertureDefinitionCommand(Command):
-    # AD, extended
-    # Section 4.11 p p99
-    pass
+    """
+    Comamnd Code AD - Extended
+    Section 4.11.1 p p99
+    Syntax is complex, return to this later
+    """
+    # XXX
+    def __init__(self, s):
+        self.s = s
+
+    @classmethod
+    def from_string(cls, s):
+        return cls(s=s)
+
+    def to_string(self):
+        return self.s
 
 
 class SetApertureCommand(Command):
-    # Dnnnn
-    # Section 4.3.1, p64
-    # Syntax is like Dnnn
-    pass
+    """
+    Command Code Dnnnn
+    Section 4.3.1, p64
+    Syntax is like Dnnn*
+    """
+    def __init__(self, aperture_number):
+        assert aperture_number >= 10
+        self.aperture_number = aperture_number
+
+    @classmethod
+    def from_string(cls, s):
+        aperture_number = int(s[1:-1])
+        return cls(aperture_number=aperture_number)
+
+    def to_string(self):
+        return 'D' + str(self.aperture_number) + '*'
 
 
 class InterpolateCommand(Command):
-    # D01
-    # Section 4.2.2, p61
-    # Syntax is like XnnnYnnnInnnJnnnD01* in normal mode
-    # Syntax is like XnnnYnnnD01* in linear interpolation mode
-    pass
+    """
+    Command Code D01
+    Section 4.2.2, p61
+    Syntax is like XnnnYnnnInnnJnnnD01* in normal mode
+    Syntax is like XnnnYnnnD01* in linear interpolation mode
+    """
+    # XXX
+    def __init__(self, s):
+        self.s = s
+
+    @classmethod
+    def from_string(cls, s):
+        return cls(s=s)
+
+    def to_string(self):
+        return self.s
 
 
 class MoveCommand(Command):
-    # D02
-    # Section 4.2.3, p62
-    # Syntax is like XnnnYnnnD02*
-    pass
+    """
+    Command Code D02
+    Section 4.2.3, p62
+    Syntax is like XnnnYnnnD02*
+    """
+    def __init__(self, x_string, y_string):
+        self.x_string = x_string
+        self.y_string = y_string
+
+    @classmethod
+    def from_string(cls, s):
+        raw = s[1:-4]
+        x_string, y_string = raw.split('Y')
+        return cls(x_string=x_string, y_string=y_string)
+
+    def to_string(self):
+        return 'X' + self.x_string + 'Y' + self.y_string + 'D02*'
 
 
 class FlashCommand(Command):
-    # D03
-    # Section 4.2.4, p62
-    # Syntax is like XnnnYnnnD03*
-    pass
+    """
+    Command Code D03
+    Section 4.2.4, p62
+    Syntax is like XnnnYnnnD03*
+    """
+    def __init__(self, x_string, y_string):
+        self.x_string = x_string
+        self.y_string = y_string
+
+    @classmethod
+    def from_string(cls, s):
+        raw = s[1:-4]
+        x_string, y_string = raw.split('Y')
+        return cls(x_string=x_string, y_string=y_string)
+
+    def to_string(self):
+        return 'X' + self.x_string + 'Y' + self.y_string + 'D03*'
 
 
 class LinearInterpolationModeCommand(Command):
-    # G01
-    # Section 4.4.1, p65
-    pass
+    """
+    Command Code G01
+    Section 4.4.1, p65
+    No args
+    """
+    def to_string(self):
+        return 'G01*'
 
 
 class CWCircularInterpolationModeCommand(Command):
-    # G02
-    # Section 4.5.3, p68
-    pass
+    """
+    Command Code G02
+    Section 4.5.3, p68
+    No args
+    """
+    def to_string(self):
+        return 'G02*'
 
 
 class CCWCircularInterpolationModeCommand(Command):
-    # G03
-    # Section 4.5.4, p68
-    pass
+    """
+    Command Code G03
+    Section 4.5.4, p68
+    No args
+    """
+    def to_string(self):
+        return 'G03*'
 
 
 class SingleQuadrantCommand(Command):
-    # G74
-    # Section 4.5.5, p68
-    pass
+    """
+    Command Code G74
+    Section 4.5.5, p68
+    No args
+    """
+    def to_string(self):
+        return 'G74*'
 
 
 class MultiQuadrantCommand(Command):
-    # G75
-    # Section 4.5.6, p68
-    pass
+    """
+    Command Code G75
+    Section 4.5.6, p68
+    No args
+    """
+    def to_string(self):
+        return 'G75*'
 
 
 class EnableRegionModeCommand(Command):
-    # G36
-    # Section 4.6.2, p76
-    pass
+    """
+    Command Code G36
+    Section 4.6.2, p76
+    No args
+    """
+    def to_string(self):
+        return 'G36*'
 
 
 class DisableRegionModeCommand(Command):
-    # G37
-    # Section 4.6.3, p76
-    pass
+    """
+    Command Code G37
+    Section 4.6.3, p76
+    No args
+    """
+    def to_string(self):
+        return 'G37*'
 
 
 class CommentCommand(Command):
-    # G04
-    # Section 4.7, p94
-    pass
+    """
+    Command Code G04
+    Section 4.7, p94
+    """
+    def __init__(self, comment):
+        self.comment = comment
+
+    @classmethod
+    def from_string(cls, s):
+        comment = s[3:-1]
+        return cls(comment=comment)
+
+    def to_string(self):
+        return 'G04' + self.comment + '*'
 
 
 class EOFCommand(Command):
-    # M02
-    pass
+    """
+    Command Code M02
+    No args
+    """
+    def to_string(self):
+        return 'M02*'
 
 
 extended_commands = {

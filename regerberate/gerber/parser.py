@@ -1,4 +1,4 @@
-from .commands import Command
+from .commands import parse_command
 
 default_sentinel = object()
 
@@ -61,7 +61,11 @@ class GerberParser(object):
 
     def parse(self):
         with open(self.filename, 'rU') as f:
-            for line_no, command in Tokenizer(f):
-                cmd = Command.from_string(command)
-                print("%04d: %r" % (line_no, cmd))
+            raw_width = 36
+            print('Line\t%s\tResult' % "Raw".ljust(raw_width))
+            print('----\t%s\t-----------' % ('-' * raw_width))
+            for line_no, s in Tokenizer(f):
+                cmd = parse_command(s)
+                assert cmd.to_string() == s
+                print("%04d\t%s\t%r" % (line_no, s.ljust(raw_width), cmd))
                 self.commands.append(cmd)

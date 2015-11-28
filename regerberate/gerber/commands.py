@@ -35,10 +35,6 @@ class Command(object):
     def from_string(cls, s):
         return cls()
 
-    def execute(self, state, plane):
-        # XXX This should go away!
-        pass
-
 
 class UnitCommand(Command):
     """
@@ -58,9 +54,7 @@ class UnitCommand(Command):
         return '%MO' + self.unit + '*%'
 
     def execute(self, state, plane):
-        assert state.unit == state.default_sentinel, \
-            "unit can only be set once"
-        state.unit = self.unit
+        state.set_unit(self.unit)
 
 
 class CoordinateFormatCommand(Command):
@@ -84,6 +78,10 @@ class CoordinateFormatCommand(Command):
     def to_string(self):
         format = '%d%d' % (self.integer_digits, self.fractional_digits)
         return '%FSLAX' + format + 'Y' + format + '*%'
+
+    def execute(self, state, plane):
+        state.set_coordinate_format(integer_digits=self.integer_digits,
+                                    fractional_digits=self.fractional_digits)
 
 
 class OffsetCommand(Command):
@@ -110,6 +108,10 @@ class OffsetCommand(Command):
     def to_string(self):
         return '%OFA' + str(self.offset_a) + 'B' + str(self.offset_b) + '*%'
 
+    def execute(self, state, plane):
+        # XXX
+        pass
+
 
 class ImagePolarityCommand(Command):
     """
@@ -129,6 +131,10 @@ class ImagePolarityCommand(Command):
 
     def to_string(self):
         return '%IP' + self.polarity + '*%'
+
+    def execute(self, state, plane):
+        # XXX
+        pass
 
 
 class LevelPolarityCommand(Command):
@@ -151,6 +157,9 @@ class LevelPolarityCommand(Command):
     def to_string(self):
         return '%LP' + self.polarity + '*%'
 
+    def execute(self, state, plane):
+        state.set_level_polarity('dark' if self.polarity == 'D' else 'clear')
+
 
 class MacroApertureCommand(Command):
     """
@@ -172,6 +181,10 @@ class MacroApertureCommand(Command):
 
     def to_string(self):
         return self.s
+
+    def execute(self, state, plane):
+        # XXX
+        pass
 
 
 class ApertureDefinitionCommand(Command):
@@ -203,6 +216,10 @@ class ApertureDefinitionCommand(Command):
     def to_string(self):
         return self.s
 
+    def execute(self, state, plane):
+        # XXX
+        pass
+
 
 class SetApertureCommand(Command):
     """
@@ -221,6 +238,9 @@ class SetApertureCommand(Command):
 
     def to_string(self):
         return 'D' + str(self.aperture_number) + '*'
+
+    def execute(self, state, plane):
+        state.set_current_aperture(self.aperture_number)
 
 
 class InterpolateCommand(Command):
@@ -262,6 +282,10 @@ class InterpolateCommand(Command):
         else:
             return 'X%sY%sD01*' % (self.x_string, self.y_string)
 
+    def execute(self, state, plane):
+        # XXX
+        pass
+
 
 class MoveCommand(Command):
     """
@@ -281,6 +305,10 @@ class MoveCommand(Command):
 
     def to_string(self):
         return 'X' + self.x_string + 'Y' + self.y_string + 'D02*'
+
+    def execute(self, state, plane):
+        # XXX
+        pass
 
 
 class FlashCommand(Command):
@@ -302,6 +330,10 @@ class FlashCommand(Command):
     def to_string(self):
         return 'X' + self.x_string + 'Y' + self.y_string + 'D03*'
 
+    def execute(self, state, plane):
+        # XXX
+        pass
+
 
 class LinearInterpolationModeCommand(Command):
     """
@@ -311,6 +343,9 @@ class LinearInterpolationModeCommand(Command):
     """
     def to_string(self):
         return 'G01*'
+
+    def execute(self, state, plane):
+        state.set_interpolation_mode('linear')
 
 
 class CWCircularInterpolationModeCommand(Command):
@@ -322,6 +357,9 @@ class CWCircularInterpolationModeCommand(Command):
     def to_string(self):
         return 'G02*'
 
+    def execute(self, state, plane):
+        state.set_interpolation_mode('clockwie-circular')
+
 
 class CCWCircularInterpolationModeCommand(Command):
     """
@@ -331,6 +369,9 @@ class CCWCircularInterpolationModeCommand(Command):
     """
     def to_string(self):
         return 'G03*'
+
+    def execute(self, state, plane):
+        state.set_interpolation_mode('counterclockwise-circular')
 
 
 class SingleQuadrantCommand(Command):
@@ -342,6 +383,9 @@ class SingleQuadrantCommand(Command):
     def to_string(self):
         return 'G74*'
 
+    def execute(self, state, plane):
+        state.set_quadrant_mode('single')
+
 
 class MultiQuadrantCommand(Command):
     """
@@ -351,6 +395,9 @@ class MultiQuadrantCommand(Command):
     """
     def to_string(self):
         return 'G75*'
+
+    def execute(self, state, plane):
+        state.set_quadrant_mode('multi')
 
 
 class EnableRegionModeCommand(Command):
@@ -362,6 +409,9 @@ class EnableRegionModeCommand(Command):
     def to_string(self):
         return 'G36*'
 
+    def execute(self, state, plane):
+        state.set_region_mode('on')
+
 
 class DisableRegionModeCommand(Command):
     """
@@ -371,6 +421,9 @@ class DisableRegionModeCommand(Command):
     """
     def to_string(self):
         return 'G37*'
+
+    def execute(self, state, plane):
+        state.set_region_mode('off')
 
 
 class CommentCommand(Command):
@@ -389,6 +442,9 @@ class CommentCommand(Command):
     def to_string(self):
         return 'G04' + self.comment + '*'
 
+    def execute(self, state, plane):
+        pass
+
 
 class EOFCommand(Command):
     """
@@ -397,6 +453,9 @@ class EOFCommand(Command):
     """
     def to_string(self):
         return 'M02*'
+
+    def execute(self, state, plane):
+        pass
 
 
 extended_commands = {

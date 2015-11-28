@@ -7,7 +7,6 @@ import os.path
 import coloredlogs
 
 from .layerset import LayerSet
-from .gerber.context import Context
 from .gerber.parser import GerberParser
 
 
@@ -34,7 +33,6 @@ def render(opts):
 
 
 def parse(opts):
-    context = Context()
     GerberParser(opts.input).parse()
     return 0
 

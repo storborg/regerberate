@@ -58,10 +58,36 @@ class GraphicsState(object):
         self.level_polarity = 'dark'
         self.region_mode = 'off'
 
+    def set_unit(self, unit):
+        assert self.unit == default_sentinel, "unit can only be set once"
+        self.unit = unit
+
+    def set_coordinate_format(self, integer_digits, fractional_digits):
+        assert self.coordinate_format == default_sentinel, \
+            "coordinate format can only be set once"
+        self.coordinate_format = integer_digits, fractional_digits
+
     def evaluate_coordinate(self, s):
         """
         Evaluate a coordinate string in the current coordinate format.
         """
+        # XXX
+
+    def set_interpolation_mode(self, mode):
+        self.interpolation_mode = mode
+
+    def set_quadrant_mode(self, mode):
+        self.quadrant_mode = mode
+
+    def set_region_mode(self, mode):
+        self.region_mode = mode
+
+    def set_level_polarity(self, polarity):
+        self.level_polarity = polarity
+
+    def set_current_aperture(self, aperture_number):
+        # XXX
+        pass
 
 
 class GraphicsPlane(object):

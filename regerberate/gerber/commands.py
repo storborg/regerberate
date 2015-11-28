@@ -1,6 +1,7 @@
 """
 Table of command codes is in Section 4.1, page 58.
 """
+import re
 from decimal import Decimal
 
 
@@ -34,23 +35,32 @@ class Command(object):
     def from_string(cls, s):
         return cls()
 
+    def execute(self, state, plane):
+        # XXX This should go away!
+        pass
+
 
 class UnitCommand(Command):
     """
     Command Code MO - Extended
     Section 4.10, p98
     """
-    def __init__(self, units):
-        self.units = units
+    def __init__(self, unit):
+        self.unit = unit
 
     @classmethod
     def from_string(cls, s):
-        units = s[3:5]
-        assert units in ('IN', 'MM'), "invalid units %r" % units
-        return cls(units=units)
+        unit = s[3:5]
+        assert unit in ('IN', 'MM'), "invalid unit %r" % unit
+        return cls(unit=unit)
 
     def to_string(self):
-        return '%MO' + self.units + '*%'
+        return '%MO' + self.unit + '*%'
+
+    def execute(self, state, plane):
+        assert state.unit == state.default_sentinel, \
+            "unit can only be set once"
+        state.unit = self.unit
 
 
 class CoordinateFormatCommand(Command):
@@ -58,8 +68,9 @@ class CoordinateFormatCommand(Command):
     Command Code FS - Extended
     Section 4.9, p96
     """
-    def __init__(self, format):
-        self.format = format
+    def __init__(self, integer_digits, fractional_digits):
+        self.integer_digits = integer_digits
+        self.fractional_digits = fractional_digits
 
     @classmethod
     def from_string(cls, s):
@@ -67,10 +78,12 @@ class CoordinateFormatCommand(Command):
         xformat = s[6:8]
         yformat = s[9:11]
         assert xformat == yformat
-        return cls(format=xformat)
+        return cls(integer_digits=int(xformat[0]),
+                   fractional_digits=int(xformat[1]))
 
     def to_string(self):
-        return '%FSLAX' + self.format + 'Y' + self.format + '*%'
+        format = '%d%d' % (self.integer_digits, self.fractional_digits)
+        return '%FSLAX' + format + 'Y' + format + '*%'
 
 
 class OffsetCommand(Command):
@@ -145,13 +158,17 @@ class MacroApertureCommand(Command):
     Section 4.13.1 - p106
     Syntax is complex, return to this later
     """
-    # XXX
-    def __init__(self, s):
+    # XXX This is missing a lot of stuff
+    def __init__(self, template_name, s):
+        self.template_name = template_name
         self.s = s
 
     @classmethod
     def from_string(cls, s):
-        return cls(s=s)
+        assert s.startswith('%AM')
+        template_name = s.split('*', 1)[0][3:]
+        return cls(template_name=template_name,
+                   s=s)
 
     def to_string(self):
         return self.s
@@ -162,14 +179,26 @@ class ApertureDefinitionCommand(Command):
     Comamnd Code AD - Extended
     Section 4.11.1 p p99
     Syntax is complex, return to this later
+
+    Aperture definitions can either include relevant information directly, or
+    can reference a named aperture macro created by a MacroApertureCommand.
     """
-    # XXX
-    def __init__(self, s):
+    # XXX This is missing a lot of stuff
+    def __init__(self, aperture_number, template_name, s):
+        self.aperture_number = aperture_number
+        self.template_name = template_name
         self.s = s
 
     @classmethod
     def from_string(cls, s):
-        return cls(s=s)
+        assert s.startswith('%ADD')
+        content = s[4:-2]
+        m = re.match('^(\d+)([a-zA-Z_.]+)', content)
+        aperture_number = int(m.group(1))
+        template_name = m.group(2)
+        return cls(aperture_number=aperture_number,
+                   template_name=template_name,
+                   s=s)
 
     def to_string(self):
         return self.s
@@ -198,19 +227,40 @@ class InterpolateCommand(Command):
     """
     Command Code D01
     Section 4.2.2, p61
-    Syntax is like XnnnYnnnInnnJnnnD01* in normal mode
+    Syntax is like XnnnYnnnInnnJnnnD01* in circular interpolation modes
     Syntax is like XnnnYnnnD01* in linear interpolation mode
+
+    XnnnYnnn indicates the end point
+    InnnJnnn indicates the center point offsets in circular modes
     """
-    # XXX
-    def __init__(self, s):
-        self.s = s
+    def __init__(self, x_string, y_string, i_string=None, j_string=None):
+        self.x_string = x_string
+        self.y_string = y_string
+        self.i_string = i_string
+        self.j_string = j_string
 
     @classmethod
     def from_string(cls, s):
-        return cls(s=s)
+        if 'I' in s:
+            m = re.match('X(\d+)Y(\d+)I(\d+)J(\d+)', s)
+            x_string = m.group(1)
+            y_string = m.group(2)
+            i_string = m.group(3)
+            j_string = m.group(4)
+            return cls(x_string=x_string, y_string=y_string,
+                       i_string=i_string, j_string=j_string)
+        else:
+            m = re.match('X(\d+)Y(\d+)', s)
+            x_string = m.group(1)
+            y_string = m.group(2)
+            return cls(x_string=x_string, y_string=y_string)
 
     def to_string(self):
-        return self.s
+        if self.i_string:
+            return 'X%sY%sI%sJ%sD01*' % (self.x_string, self.y_string,
+                                         self.i_string, self.j_string)
+        else:
+            return 'X%sY%sD01*' % (self.x_string, self.y_string)
 
 
 class MoveCommand(Command):

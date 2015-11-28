@@ -3,11 +3,12 @@ from .commands import parse_command
 default_sentinel = object()
 
 
-class Tokenizer(object):
+class GerberTokenizer(object):
     """
     Yield each command in the Gerber file, as a tuple including the line
     number it is on. E.g. ``(103, 'D10*')``.
     """
+    # XXX This should probably rename to become the GerberTokenizer
     def __init__(self, f):
         self.f = f
         self.inside_extended = False
@@ -35,18 +36,16 @@ class Tokenizer(object):
                 self.current_command = ''
 
 
-class GerberParser(object):
-    def __init__(self, filename, context):
-        self.filename = filename
-        self.context = context
-
+class GraphicsState(object):
+    def __init__(self):
         self.attributes = {}
-        # XXX Maybe this should go away?
-        self.commands = []
+        self.apertures = {}
+        self.aperture_templates = {}
 
         # Graphics state parameters (see p26 of Gerber spec)
 
         # Required to be initialized in file.
+        self.default_sentinel = default_sentinel
         self.coordinate_format = default_sentinel
         self.unit = default_sentinel
         self.current_aperture = default_sentinel
@@ -59,13 +58,32 @@ class GerberParser(object):
         self.level_polarity = 'dark'
         self.region_mode = 'off'
 
+    def evaluate_coordinate(self, s):
+        """
+        Evaluate a coordinate string in the current coordinate format.
+        """
+
+
+class GraphicsPlane(object):
+    pass
+
+
+class GerberParser(object):
+    def __init__(self, filename):
+        self.filename = filename
+
     def parse(self):
+        plane = GraphicsPlane()
+        state = GraphicsState()
+
         with open(self.filename, 'rU') as f:
             raw_width = 36
             print('Line\t%s\tResult' % "Raw".ljust(raw_width))
             print('----\t%s\t-----------' % ('-' * raw_width))
-            for line_no, s in Tokenizer(f):
+            for line_no, s in GerberTokenizer(f):
                 cmd = parse_command(s)
                 assert cmd.to_string() == s
                 print("%04d\t%s\t%r" % (line_no, s.ljust(raw_width), cmd))
-                self.commands.append(cmd)
+                cmd.execute(state, plane)
+
+        return plane

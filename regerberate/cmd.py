@@ -35,7 +35,7 @@ def render(opts):
 
 def parse(opts):
     context = Context()
-    GerberParser(opts.input, context).parse()
+    GerberParser(opts.input).parse()
     return 0
 
 
